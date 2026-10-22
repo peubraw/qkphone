@@ -49,5 +49,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Linphone"
+rootProject.name = "QuantumKey Phone"
 include(":app")

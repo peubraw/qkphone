@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="qk_primary">#0F172A</color>
     <color name="transparent_color">#00000000</color>
     <color name="bc_black">#000000</color>
     <color name="bc_white">#FFFFFF</color>
