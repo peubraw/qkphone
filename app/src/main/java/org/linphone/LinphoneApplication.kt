@@ -63,6 +63,10 @@ class LinphoneApplication : Application(), SingletonImageLoader.Factory {
     @SuppressLint("ThreadConstraint")
     override fun onCreate() {
         super.onCreate()
+        // QuantumKey Phone: tema escuro como padrao
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(
+            androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+        )
         val context = applicationContext
 
         val powerManager = context.getSystemService(POWER_SERVICE) as PowerManager
