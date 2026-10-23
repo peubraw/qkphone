@@ -23,8 +23,11 @@ import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.lifecycle.MutableLiveData
 import org.linphone.LinphoneApplication.Companion.coreContext
+import org.json.JSONObject
 import org.linphone.core.ConfiguringState
 import org.linphone.core.Core
+import org.linphone.core.Factory
+import org.linphone.core.TransportType
 import org.linphone.core.CoreListenerStub
 import org.linphone.core.tools.Log
 import org.linphone.ui.GenericViewModel
@@ -71,10 +74,72 @@ class QrCodeViewModel
         }
 
         @WorkerThread
+        private fun configureTeleraSipAccount(core: Core, qrContent: String): Boolean {
+            return try {
+                val json = JSONObject(qrContent.trim())
+                val sipAccounts = json.optJSONArray("sipaccounts") ?: return false
+                if (sipAccounts.length() == 0) return false
+
+                val first = sipAccounts.getJSONObject(0)
+                val username = first.optString("sipusername", "").trim()
+                if (username.isEmpty()) return false
+                val password = first.optString("sippassword", "")
+                val sipProxy = first.optString("sipproxy", "").trim()
+                val subDomain = first.optString("subdomain", "").trim()
+                // Telera: quando vazio, o servidor SIP padrao e sip.telera.com.br
+                val domain = sipProxy.ifEmpty { subDomain.ifEmpty { "sip.telera.com.br" } }
+
+                Log.i("$TAG Configuring Telera SIP account [$username@$domain] from QR code")
+
+                val identity = core.interpretUrl("sip:$username@$domain", false)
+                if (identity == null) {
+                    Log.e("$TAG Failed to interpret Telera identity sip:$username@$domain")
+                    showRedToast(R.string.assistant_qr_code_invalid_toast, R.drawable.warning_circle)
+                    return true
+                }
+
+                val already = core.accountList.find {
+                    it.params.identityAddress?.weakEqual(identity) == true
+                }
+                if (already != null) {
+                    Log.w("$TAG Telera account [$username@$domain] already configured")
+                    showRedToast(R.string.assistant_account_login_already_connected_error, R.drawable.warning_circle)
+                    remoteProvisioningSuccessfulEvent.postValue(Event(true))
+                    return true
+                }
+
+                val authInfo = Factory.instance().createAuthInfo(
+                    username, null, password, null, null, domain
+                )
+                core.addAuthInfo(authInfo)
+
+                val accountParams = core.createAccountParams()
+                accountParams.identityAddress = identity
+                val server = core.interpretUrl("sip:$domain", false)
+                if (server != null) {
+                    server.transport = TransportType.Udp
+                    accountParams.serverAddress = server
+                }
+
+                val account = core.createAccount(accountParams)
+                core.addAccount(account)
+                core.defaultAccount = account
+                Log.i("$TAG Telera account [$username@$domain] added, leaving assistant")
+                remoteProvisioningSuccessfulEvent.postValue(Event(true))
+                true
+            } catch (e: Exception) {
+                Log.d("$TAG QR content is not a Telera JSON: ${e.message}")
+                false
+            }
+        }
+
+        @WorkerThread
         override fun onQrcodeFound(core: Core, result: String?) {
             Log.i("$TAG QR Code found: [$result]")
             if (result == null) {
                 showRedToast(R.string.assistant_qr_code_invalid_toast, R.drawable.warning_circle)
+            } else if (configureTeleraSipAccount(core, result)) {
+                Log.i("$TAG QR Code handled as Telera SIP account configuration")
             } else {
                 val url = LinphoneUtils.getRemoteProvisioningUrlFromUri(result)
                 if (url == null) {
