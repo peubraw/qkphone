@@ -615,8 +615,17 @@ class MainActivity : GenericActivity() {
                         )
                     }
                     else -> {
-                        Log.i("$TAG Default fragment is the same as the latest visited one")
-                        navigatedToDefaultFragment = true
+                        Log.i("$TAG Default fragment is the latest visited one, opening dialpad")
+                        // QuantumKey Phone: abre no teclado de discagem, mantendo
+                        // o historico no back stack (voltar vai pro historico, nao fecha o app)
+                        navOptionsBuilder.setPopUpTo(R.id.historyListFragment, false)
+                        val dialpadOptions = navOptionsBuilder.build()
+                        findNavController().addOnDestinationChangedListener(destinationListener)
+                        findNavController().navigate(
+                            R.id.startCallFragment,
+                            args,
+                            dialpadOptions
+                        )
                     }
                 }
             } catch (ise: IllegalStateException) {
